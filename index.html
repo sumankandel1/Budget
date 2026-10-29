@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monthly Budget Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f2f5f1; --card:#ffffff; --ink:#1b2a25; --muted:#5f6f68; --line:#d9e1dc;
+  --accent:#0f6b5c; --accent-ink:#ffffff; --warn:#b97a00; --over:#b3382c; --track:#e4ebe6;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121a17; --card:#1a2420; --ink:#e8f0ec; --muted:#9bb0a7; --line:#2b3a34;
+    --accent:#4fc3a8; --accent-ink:#0b1a15; --warn:#e0a53a; --over:#ef7a6c; --track:#27342e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121a17; --card:#1a2420; --ink:#e8f0ec; --muted:#9bb0a7; --line:#2b3a34;
+  --accent:#4fc3a8; --accent-ink:#0b1a15; --warn:#e0a53a; --over:#ef7a6c; --track:#27342e;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:760px;margin:0 auto;padding:24px 16px 56px}
+h1{font-size:1.5rem;font-weight:800;margin:0}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+label{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
+input,select,button{font:inherit}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.month{width:auto}
+.total{background:var(--accent);color:var(--accent-ink);border-radius:14px;padding:20px 22px;margin-bottom:20px}
+.total .left{font-size:2.6rem;font-weight:800;line-height:1.05}
+.total .sub{opacity:.9;margin-top:4px}
+.total .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.28);margin-top:14px;overflow:hidden}
+.total .bar span{display:block;height:100%;background:currentColor;border-radius:99px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:20px}
+.panel h2{font-size:1.05rem;margin:0 0 12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.full{grid-column:1/-1}
+.add{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:12px;font-weight:600;cursor:pointer;width:100%}
+.err{color:var(--over);font-size:.9rem;min-height:1.2em;margin:8px 0 0}
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:20px}
+.cat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.cat .name{font-weight:600}
+.cat .rem{font-size:1.5rem;font-weight:800;margin:2px 0}
+.cat .rem.over{color:var(--over)}
+.cat .meta{font-size:.85rem;color:var(--muted)}
+.track{height:8px;background:var(--track);border-radius:99px;margin:8px 0;overflow:hidden}
+.track span{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.track span.warn{background:var(--warn)}
+.track span.over{background:var(--over)}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+li .what{flex:1;min-width:0}
+li .what b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li .what small{color:var(--muted)}
+li .amt{font-weight:600;white-space:nowrap}
+.del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer}
+.empty{color:var(--muted);margin:0}
+@media (max-width:480px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Monthly budget</h1>
+      <div style="color:var(--muted)">£900 to spend, split into seven limits</div>
+    </div>
+    <div>
+      <label for="month">Month</label>
+      <input class="month" type="month" id="month">
+    </div>
+  </header>
+
+  <p id="sync" style="color:var(--muted);font-size:.9rem;margin:-8px 0 16px"></p>
+
+  <section class="total" aria-live="polite">
+    <div class="left" id="totalLeft"></div>
+    <div class="sub" id="totalSub"></div>
+    <div class="bar"><span id="totalBar"></span></div>
+  </section>
+
+  <section class="panel">
+    <h2>Add a spend</h2>
+    <div class="row">
+      <div>
+        <label for="amount">Amount (£)</label>
+        <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="12.50">
+      </div>
+      <div>
+        <label for="category">Category</label>
+        <select id="category"></select>
+      </div>
+      <div>
+        <label for="note">What was it?</label>
+        <input id="note" type="text" maxlength="60" placeholder="e.g. Tesco weekly shop">
+      </div>
+      <div>
+        <label for="date">Date</label>
+        <input id="date" type="date">
+      </div>
+      <div class="full"><button class="add" id="addBtn" type="button">Add spend</button></div>
+    </div>
+    <p class="err" id="err" role="alert"></p>
+  </section>
+
+  <section class="cats" id="cats"></section>
+
+  <section class="panel">
+    <h2>This month’s spending</h2>
+    <ul id="list"></ul>
+  </section>
+</main>
+
+<script>
+const CATS = [
+  { id: "shopping",  name: "Shopping",  limit: 200 },
+  { id: "grocery",   name: "Grocery",   limit: 250 },
+  { id: "utilities", name: "Utilities", limit: 145 },
+  { id: "transport", name: "Transport", limit: 130 },
+  { id: "eatout",    name: "Eat out",   limit: 125 },
+  { id: "car",       name: "Car",       limit: 17.5 },
+  { id: "other",     name: "Other",     limit: 32.5 }
+];
+const TOTAL = CATS.reduce((s, c) => s + c.limit, 0); // £900
+const KEY = "budget-tracker-expenses";
+
+let expenses = [];
+let dbCol = null;
+try { expenses = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { expenses = []; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(expenses)); } catch (e) {} }
+function setStatus(msg) { document.getElementById("sync").textContent = msg; }
+
+const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+const $ = id => document.getElementById(id);
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+let liveDay = today();
+$("month").value = liveDay.slice(0, 7);
+$("date").value = today();
+$("category").innerHTML = CATS.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+
+function render() {
+  const month = $("month").value;
+  const items = expenses.filter(e => e.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const spent = {};
+  CATS.forEach(c => spent[c.id] = 0);
+  items.forEach(e => { if (e.cat in spent) spent[e.cat] += e.amount; });
+  const totalSpent = Object.values(spent).reduce((a, b) => a + b, 0);
+  const left = TOTAL - totalSpent;
+
+  $("totalLeft").textContent = left >= 0 ? gbp.format(left) + " left" : gbp.format(-left) + " over budget";
+  $("totalSub").textContent = gbp.format(totalSpent) + " spent of " + gbp.format(TOTAL);
+  $("totalBar").style.width = Math.min(100, totalSpent / TOTAL * 100) + "%";
+
+  $("cats").innerHTML = CATS.map(c => {
+    const s = spent[c.id], r = c.limit - s, pct = s / c.limit * 100;
+    const cls = pct > 100 ? "over" : pct >= 80 ? "warn" : "";
+    return `<div class="cat">
+      <div class="name">${c.name}</div>
+      <div class="rem ${r < 0 ? "over" : ""}">${r >= 0 ? gbp.format(r) + " left" : gbp.format(-r) + " over"}</div>
+      <div class="track"><span class="${cls}" style="width:${Math.min(100, pct)}%"></span></div>
+      <div class="meta">${gbp.format(s)} of ${gbp.format(c.limit)}</div>
+    </div>`;
+  }).join("");
+
+  const list = $("list");
+  if (!items.length) { list.innerHTML = '<li><p class="empty">Nothing added for this month yet. Enter your first spend above.</p></li>'; return; }
+  list.innerHTML = items.map(e => {
+    const c = CATS.find(x => x.id === e.cat);
+    const note = e.note ? e.note.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])) : "No description";
+    return `<li>
+      <div class="what"><b>${note}</b><small>${c ? c.name : e.cat} · ${e.date.split("-").reverse().join("/")}</small></div>
+      <div class="amt">${gbp.format(e.amount)}</div>
+      <button class="del" type="button" data-id="${e.id}" aria-label="Delete this spend">Delete</button>
+    </li>`;
+  }).join("");
+}
+
+$("addBtn").addEventListener("click", () => {
+  const amount = parseFloat($("amount").value);
+  if (!(amount > 0)) { $("err").textContent = "Enter an amount greater than £0."; return; }
+  if (!$("date").value) { $("err").textContent = "Pick a date."; return; }
+  $("err").textContent = "";
+  const entry = { id: String(Date.now()), amount: Math.round(amount * 100) / 100, cat: $("category").value, note: $("note").value.trim(), date: $("date").value };
+  if (dbCol) { dbCol.doc(entry.id).set(entry).catch(() => setStatus("Could not save. Ask the page owner to give you edit access.")); }
+  else { expenses.push(entry); save(); }
+  $("month").value = $("date").value.slice(0, 7);
+  $("amount").value = ""; $("note").value = "";
+  $("amount").focus();
+  render();
+});
+$("amount").addEventListener("keydown", e => { if (e.key === "Enter") $("addBtn").click(); });
+$("note").addEventListener("keydown", e => { if (e.key === "Enter") $("addBtn").click(); });
+$("list").addEventListener("click", e => {
+  const b = e.target.closest(".del");
+  if (!b) return;
+  if (dbCol) { dbCol.doc(b.dataset.id).delete().catch(() => setStatus("Could not delete. Ask the page owner to give you edit access.")); return; }
+  expenses = expenses.filter(x => String(x.id) !== b.dataset.id);
+  save(); render();
+});
+$("month").addEventListener("change", render);
+
+// Month rollover: when the clock passes midnight into a new day (or month), update automatically
+function checkRollover() {
+  const nowDay = today();
+  if (nowDay === liveDay) return;
+  const oldMonth = liveDay.slice(0, 7), newMonth = nowDay.slice(0, 7);
+  if ($("date").value === liveDay) $("date").value = nowDay;
+  if (newMonth !== oldMonth && $("month").value === oldMonth) $("month").value = newMonth;
+  liveDay = nowDay;
+  render();
+}
+setInterval(checkRollover, 15000);
+document.addEventListener("visibilitychange", checkRollover);
+render();
+
+setStatus("Entries are saved on this device only.");
+</script>
+</body>
+</html>
